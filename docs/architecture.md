@@ -1,6 +1,6 @@
 # OctoFit Tracker architecture
 
-OctoFit Tracker is a three-tier application for a school fitness program. The starter code includes API contracts and intentionally incomplete implementation points so you can use GitHub Copilot agent mode in a test-driven loop.
+OctoFit Tracker is a three-tier application for a school fitness program. Its presentation, logic, and data tiers are separated so each can be implemented and verified through its contracts.
 
 ![Three-tier OctoFit architecture](../.github/images/octofit-architecture.svg)
 
@@ -24,26 +24,22 @@ OctoFit Tracker is a three-tier application for a school fitness program. The st
 | Activity tracking | `GET /api/activities`, `POST /api/activities` | List and create valid activity records. POST accepts `userId`, `teamId`, `type`, and `minutes`; `userId` and `teamId` must be well-formed IDs for an existing user and team; otherwise respond with a deliberate 4xx (never a 500 from a cast error). A created activity stores the submitted `user`, `team`, `type`, and `minutes` plus computed `points` and `occurredAt`. |
 | Teams | `GET /api/teams`, `POST /api/teams` | List and create teams with members. Created and listed teams keep the submitted `name` and `mascot`. Reject a team without a name with `400`. |
 | Leaderboard | `GET /api/leaderboard` | Return teams ordered by the sum of their activity points, highest first. Each entry has `teamName`, `totalPoints`, and a 1-based `rank`. |
-| Workout suggestions | `GET /api/workouts/suggestions/:userEmail` | Recommend workouts from recent activity patterns for the matching seeded user's email address. The first suggestion's `focus` matches that user's goal or recent activity, with a `reason` explaining why. An email with no matching user returns a deliberate 4xx (for example, `404`). |
+| Workout suggestions | `GET /api/workouts/suggestions/:userEmail` | Look up a user by email and prefer workouts whose `focus` matches their fitness goal or mapped recent activity pattern; include a `reason` explaining the recommendation. An unknown email returns a deliberate 4xx (`404`). |
 
 ## Implementation decisions
 
-Record your plan here before editing code.
-
-- Presentation tier decision:
-- Logic tier decision:
-- Data tier decision:
-- Activity tracking approach:
-- Team management approach:
-- Leaderboard approach:
-- Workout suggestions approach:
+- Presentation tier decision: React route components use a shared `getJson` client, relative `/api` paths, and a shared card for loading, empty, and accessible error states. The screens display API data for activities, teams, leaderboard rankings, and workout suggestions; the workout screen requests suggestions for the seeded Mona account (`mona@example.com`).
+- Logic tier decision: Express routes delegate to service functions. The API validates request bodies and ObjectId formats, checks referenced users/teams, and returns deliberate 4xx responses for invalid or missing resources.
+- Data tier decision: Mongoose schemas require the user identity and fitness goal, team name and mascot, activity references/type/minutes/points/date, and workout title/focus/minutes/difficulty. Team members default to an empty array. The seed uses stable upserts and reconciles a seeded user's previous team membership without clearing unrelated records.
+- Activity tracking approach: `GET /api/activities` lists records. `POST /api/activities` accepts `userId`, `teamId`, `type`, and positive `minutes`; it validates IDs and existing references, stores the references/type/minutes, assigns points equal to minutes, and sets `occurredAt` to the current time.
+- Team management approach: `GET /api/teams` lists teams. `POST /api/teams` requires nonblank `name` and `mascot`, accepts an optional array of valid existing user IDs as `members`, and returns the created team.
+- Leaderboard approach: Aggregate activity points by team, include teams with no activities at zero points, sort descending by total points (team name breaks ties), and assign 1-based ranks.
+- Workout suggestions approach: Look up a user by case-insensitive email and return `404` when none exists. Analyze that user's ten most recent activities, map common types such as run/cycle to endurance and strength to strength, and prefer matching workouts; without activity history, use the user's fitness goal. Suggestions include a reason describing the activity pattern or goal.
 
 ## Test plan
 
-Record the commands you run and what each failure means.
-
-- Data-tier command: `npm run test:data --prefix octofit-tracker/backend`
-- API command: `npm run test:api --prefix octofit-tracker/backend`
-- Frontend command: `npm test --prefix octofit-tracker/frontend`
-- Backend build command: `npm run build --prefix octofit-tracker/backend`
-- Frontend build command: `npm run build --prefix octofit-tracker/frontend`
+- `npm run test:data --prefix octofit-tracker/backend` — passed; 1 test file, 5 tests.
+- `npm run test:api --prefix octofit-tracker/backend` — passed; 1 test file, 4 tests.
+- `npm test --prefix octofit-tracker/frontend` — passed; 1 test file, 15 tests.
+- `npm run build --prefix octofit-tracker/backend` — passed; TypeScript check completed.
+- `npm run build --prefix octofit-tracker/frontend` — passed; TypeScript check and Vite production build completed.
